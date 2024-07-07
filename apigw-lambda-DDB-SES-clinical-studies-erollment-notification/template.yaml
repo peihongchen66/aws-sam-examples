@@ -1,0 +1,108 @@
+#Before deploy this template to your account, you need to create and verify SES identities for your source email address
+#If your SES is in Sandbox mode, destination emails identities need to be created and verified as well.
+#If your SES is in production mode, you don't need to create identities for designation emails.
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  clinical-studies
+
+  Sample SAM Template for clinical-studies
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 120
+    MemorySize: 516
+
+Resources:
+  GetStudiesFunction:
+    Type: AWS::Serverless::Function 
+    FunctionName: GetStudyLambdaFunction
+    Properties:
+      CodeUri: func_get_studies/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Layers:
+        - arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python311:12
+      Architectures:
+        - x86_64
+    Connectors:
+      StudyTableConn:
+        Properties:
+          Destination:
+            Id: StudyTable
+          Permissions:
+            - Read
+            - Write
+
+  StudyStatusChangeFunction:
+    Type: AWS::Serverless::Function 
+    FunctionName: StudyStatusChangeLambdaFunction
+    Properties:
+      CodeUri: func_study_status_change/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Layers:
+        - arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python311:12
+      Architectures:
+        - x86_64
+      Events:
+        DDBEvent:
+          Type: DynamoDB
+          Properties:
+            Stream: 
+              !GetAtt StudyTable.StreamArn   # This must be the name of a DynamoDB table declared in the same template file
+            StartingPosition: TRIM_HORIZON
+            BatchSize: 10
+            Enabled: false
+            MaximumRecordAgeInSeconds: 600
+            MaximumRetryAttempts: 2
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref StudyTable
+        - SESCrudPolicy:
+            IdentityName: email1@example.com # replace this with your source email address 
+        - SESCrudPolicy:
+            IdentityName: email2@example.com # replace this with your test destination email address. only need for SES sandbox mode.
+    
+  StudyTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete  # Change to Retain if you would like to keep the data in the table
+    Properties:
+      TableName: StudyDynamoTable
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+      ProvisionedThroughput:
+        ReadCapacityUnits: 0
+        WriteCapacityUnits: 0
+      StreamSpecification:
+        StreamViewType:  NEW_AND_OLD_IMAGES
+      
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  GetStudiesFunction:
+    Description: "Get Studies Lambda Function ARN"
+    Value: !GetAtt GetStudiesFunction.Arn
+  GetStudiesFunctionIamRole:
+    Description: "Implicit IAM Role created for Get Studies function"
+    Value: !GetAtt GetStudiesFunctionRole.Arn
+  StudyStatusChangeFunction:
+    Description: "Process study status changes from StudyTable stream"
+    Value: !GetAtt StudyStatusChangeFunction.Arn
+  StudyStatusChangeFunctionIamRole:
+    Description: "Implicit IAM Role created for Study Status Change function"
+    Value: !GetAtt StudyStatusChangeFunctionRole.Arn
+  StudyTable:
+    Description: "Study DynamoDB Table ARN"
+    Value: !GetAtt StudyTable.Arn
