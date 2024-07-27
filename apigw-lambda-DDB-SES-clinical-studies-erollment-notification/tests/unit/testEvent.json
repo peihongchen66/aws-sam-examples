@@ -1,0 +1,72 @@
+{
+    "Records": [
+        {
+            "eventID": "b970b1d9a911344196cee3b24b3fa3b2",
+            "eventName": "INSERT",
+            "eventVersion": "1.1",
+            "eventSource": "aws:dynamodb",
+            "awsRegion": "us-east-1",
+            "dynamodb": {
+                "ApproximateCreationDateTime": 1720300466.0,
+                "Keys": {
+                    "SK": {
+                        "S": "s#NCT05305911"
+                    },
+                    "PK": {
+                        "S": "s#Heart Attack"
+                    }
+                },
+                "NewImage": {
+                    "SK": {
+                        "S": "s#NCT05305911"
+                    },
+                    "briefTitle": {
+                        "S": "Sodium Glucose Co-Transporter 2 (SGLT2) and STEMI"
+                    },
+                    "PK": {
+                        "S": "s#Heart Attack"
+                    },
+                    "overallStatus": {
+                        "S": "RECRUITING"
+                    }
+                },
+                "SequenceNumber": "100000000066784868908",
+                "SizeBytes": 144,
+                "StreamViewType": "NEW_AND_OLD_IMAGES"
+            },
+            "eventSourceARN": "arn:aws:dynamodb:us-east-1: 281281206852:table/StudyDynamoTable/stream/2024-07-06T21: 10: 45.274"
+        }
+    ]
+}
+
+{'Items': [
+        {'PK': 'n#Heart Attack', 'SK': 'n#peihong.chen66@gmail.com'
+        }
+    ], 'Count': 1, 'ScannedCount': 1, 'ResponseMetadata': {'RequestId': 'VGBOCVDOBALJ81E5QNTVVD67JJVV4KQNSO5AEMVJF66Q9ASUAAJG', 'HTTPStatusCode': 200, 'HTTPHeaders': {'server': 'Server', 'date': 'Sat,
+            06 Jul 2024 22: 24: 39 GMT', 'content-type': 'application/x-amz-json-1.0', 'content-length': '108', 'connection': 'keep-alive', 'x-amzn-requestid': 'VGBOCVDOBALJ81E5QNTVVD67JJVV4KQNSO5AEMVJF66Q9ASUAAJG', 'x-amz-crc32': '2606027528'
+        }, 'RetryAttempts': 0
+    }
+}
+
+{'Items': [
+        {
+            'PK': 'n#Heart Attack', 
+            'SK': 'n#peihong.chen66@gmail.com'
+        }
+    ], 
+    'Count': 1, 
+    'ScannedCount': 1, 
+    'ResponseMetadata': {
+        'RequestId': 'P8EBDO0Q7KO01TBSF23SO3NFERVV4KQNSO5AEMVJF66Q9ASUAAJG', 
+        'HTTPStatusCode': 200, 
+        'HTTPHeaders': {
+            'server': 'Server', 
+            'date': 'Sun,07 Jul 2024 18: 00: 02 GMT', 
+            'content-type': 'application/x-amz-json-1.0', 
+            'content-length': '108', 
+            'connection': 'keep-alive', 
+            'x-amzn-requestid': 'P8EBDO0Q7KO01TBSF23SO3NFERVV4KQNSO5AEMVJF66Q9ASUAAJG', 
+            'x-amz-crc32': '2606027528'
+        }, 'RetryAttempts': 0
+    }
+}

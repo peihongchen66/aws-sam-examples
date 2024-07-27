@@ -1,130 +1,74 @@
 # clinical_studies
+Please note that some of services used by this application are not free tier. You may incur small charges if deployed to your account. The charges should be miminal if you are just doing some learning and testing. I have been working on this project the past few weekends and am only charged $0.10 in my AWS account.
 
-This project contains source code and supporting files for a serverless application that you can deploy with the SAM CLI. It includes the following files and folders.
+This project contains example source code and supporting files for a sample AWS serverless application that notifes user through emails when a ClinicalTrials.gov clinical study on a disease that the user signed up for opens for patient enrollment. There are three Lambda modules, a DynamoDB table, and a website hosting S3 bucket in ths application. I am considering to add CloudFront and Cognito to the web page hosted in S3 in a later version so that the S3 bucket will not be publicly exposed.
 
-- hello_world - Code for the application's Lambda function.
-- events - Invocation events that you can use to invoke the function.
-- tests - Unit tests for the application code. 
-- template.yaml - A template that defines the application's AWS resources.
+- A Lambda function that loads disease keywords mapping from csv file 'disease_mapping.csv' in this repository. It then reads studies from ClinicalTrails.gov that satify certain criteria using ClinicalTrials.gov API, which is described in this link https://clinicaltrials.gov/data-api/api. Finally, the studies are looped through and if study conditions contain any of keywords for a disease/condition, disease/condition, study nctID, and study overall status is entered into DynamoDB table as an Item. If a study's conditions contain keywords for multiple disease/condition, multple items are entered into the table for this study.
 
-The application uses several AWS resources, including Lambda functions and an API Gateway API. These resources are defined in the `template.yaml` file in this project. You can update the template to add AWS resources through the same deployment process that updates your application code.
+- A Lambda function behind an API Gateway to provide a rest API which supports a post method with variables disease/condition and email address in the body. It save the data to the DynamoDB table as notification subscription.
 
-If you prefer to use an integrated development environment (IDE) to build and test your application, you can use the AWS Toolkit.  
-The AWS Toolkit is an open source plug-in for popular IDEs that uses the SAM CLI to build and deploy serverless applications on AWS. The AWS Toolkit also adds a simplified step-through debugging experience for Lambda function code. See the following links to get started.
+- A Lambda function that is triggered by events from DynamoDB Stream of the table. It sends out emails to the disease/condition subscripbers if the event name is INSERT and overallStatus in the new image is "RECRUITING" or the event name is MODIFY and overallStatus in the new image is "RECRUITING" but in the old image is not.
 
-* [CLion](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [GoLand](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [IntelliJ](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [WebStorm](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [Rider](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [PhpStorm](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [PyCharm](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [RubyMine](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [DataGrip](https://docs.aws.amazon.com/toolkit-for-jetbrains/latest/userguide/welcome.html)
-* [VS Code](https://docs.aws.amazon.com/toolkit-for-vscode/latest/userguide/welcome.html)
-* [Visual Studio](https://docs.aws.amazon.com/toolkit-for-visual-studio/latest/user-guide/welcome.html)
+- A DynamoDB table with PK as partition key and SK as sort key. It holds 3 type of different items. The first type is disease mapping from the csv file with attributes "d#DISEASES"(PK), "d#"+disease/condition(SK), and keywords(keyWords). The secord type is the combination of disease mapping and study information from ClinicalTrails.gov with attributs "s#"+disease/condition(PK), "s#'+nctID(SK), and study overall status(overallStatus). The third type of records is notification subscription with attributes "n#"+disease/condition(PK) and "n#"+email address(SK).
+
+- A website hosting S3 bucket with an HTML page. The HTML page has a simple form. The form action is the URL for the API gateway and method is 'POST'. The form has a multiselect for the user to pick a disease/condition and a textbox to enter email address that enrollment notifications should be sent to.
+
+
+You can deploy this application with the SAM CLI. It includes the following files and folders.
+- func_get_studies - contains Python code for lambda function to get data from ClinicalTrial.gov and disease keyword mapping csv file.
+- func_notification_signup - contains Python code for lambda function for notification signup rest API.
+- func_study_status_change - contains Python code for lambda function trigged by the DynamoDB table stream to send out notification emails when there are studies that open up for patient enrollment. 
+- template.yaml - a template that defines the application's AWS resources.
+- index.html - this is the HTML page containing a simple form for the users to submit subscription for enrollment notification for certain disease/condition.
+
+The application uses below AWS resources. These resources are defined in the `template.yaml` file in this project. You can update the template to add AWS resources through the same deployment process that updates your application code.
+- AWS Lambda
+- Amazon API Gateway
+- Amazon DynamoDB
+- AWS Identity and Access Management
+- Amazon EventBridge
+- Amazon S3
+- Amazon Simple Email Service
+
 
 ## Deploy the sample application
 
-The Serverless Application Model Command Line Interface (SAM CLI) is an extension of the AWS CLI that adds functionality for building and testing Lambda applications. It uses Docker to run your functions in an Amazon Linux environment that matches Lambda. It can also emulate your application's build environment and API.
+The Serverless Application Model Command Line Interface (SAM CLI) can be used for build and deploy AWS serverless applications. To deploy this application, there are tasks before and after SAM deploy. 
+
+Before SAM deploy, you need create and verify SES identities for the email addresses that you are going to use. When you first use SES service, your service is in Sandbox. Please see below link for restrictions of Sandbox status.
+https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html
+
+Also, in SAM template.yaml file, change email addresses of SESCrudPolicy for StudyStatusChangeFunction to your test sending and receiving email addresses. Change start and end dates of StudyRefreshScheduleEvent for GetStudiesFunction to sometime in the future (they are in UTC timezone). Finally, change BucketName for StudyEnrollmentNotificationS3Bucket to something of your own since bucket names are globally unique.
+
+After SAM deploy, get API gateway endpoint from the output section and replace form action in index.html with this endpoint. Then upload the index.html to the S3 bucket.
 
 To use the SAM CLI, you need the following tools.
 
 * SAM CLI - [Install the SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
 * [Python 3 installed](https://www.python.org/downloads/)
-* Docker - [Install Docker community edition](https://hub.docker.com/search/?type=edition&offering=community)
 
 To build and deploy your application for the first time, run the following in your shell:
 
 ```bash
-sam build --use-container
+sam build 
 sam deploy --guided
 ```
-
 The first command will build the source of your application. The second command will package and deploy your application to AWS, with a series of prompts:
 
-* **Stack Name**: The name of the stack to deploy to CloudFormation. This should be unique to your account and region, and a good starting point would be something matching your project name.
+* **Stack Name**: The name of the stack to deploy to CloudFormation. This should be unique to your account and region.
 * **AWS Region**: The AWS region you want to deploy your app to.
 * **Confirm changes before deploy**: If set to yes, any change sets will be shown to you before execution for manual review. If set to no, the AWS SAM CLI will automatically deploy application changes.
-* **Allow SAM CLI IAM role creation**: Many AWS SAM templates, including this example, create AWS IAM roles required for the AWS Lambda function(s) included to access AWS services. By default, these are scoped down to minimum required permissions. To deploy an AWS CloudFormation stack which creates or modifies IAM roles, the `CAPABILITY_IAM` value for `capabilities` must be provided. If permission isn't provided through this prompt, to deploy this example you must explicitly pass `--capabilities CAPABILITY_IAM` to the `sam deploy` command.
+* **Allow SAM CLI IAM role creation**: This SAM template creates AWS IAM roles required for the AWS Lambda functions to access AWS services. By default, these are scoped down to minimum required permissions. To deploy an AWS CloudFormation stack which creates or modifies IAM roles, the `CAPABILITY_IAM` value for `capabilities` must be provided. If permission isn't provided through this prompt, to deploy this example you must explicitly pass `--capabilities CAPABILITY_IAM` to the `sam deploy` command.
+* **NoticationSignUpFunction has no authentication. Is this okay?**: To simplify this sample application, there is no authentication mechanism implemented for API gateway. Answer Y.
 * **Save arguments to samconfig.toml**: If set to yes, your choices will be saved to a configuration file inside the project, so that in the future you can just re-run `sam deploy` without parameters to deploy changes to your application.
 
 You can find your API Gateway Endpoint URL in the output values displayed after deployment.
 
-## Use the SAM CLI to build and test locally
-
-Build your application with the `sam build --use-container` command.
-
-```bash
-clinical_studies$ sam build --use-container
-```
-
-The SAM CLI installs dependencies defined in `hello_world/requirements.txt`, creates a deployment package, and saves it in the `.aws-sam/build` folder.
-
-Test a single function by invoking it directly with a test event. An event is a JSON document that represents the input that the function receives from the event source. Test events are included in the `events` folder in this project.
-
-Run functions locally and invoke them with the `sam local invoke` command.
-
-```bash
-clinical_studies$ sam local invoke HelloWorldFunction --event events/event.json
-```
-
-The SAM CLI can also emulate your application's API. Use the `sam local start-api` to run the API locally on port 3000.
-
-```bash
-clinical_studies$ sam local start-api
-clinical_studies$ curl http://localhost:3000/
-```
-
-The SAM CLI reads the application template to determine the API's routes and the functions that they invoke. The `Events` property on each function's definition includes the route and method for each path.
-
-```yaml
-      Events:
-        HelloWorld:
-          Type: Api
-          Properties:
-            Path: /hello
-            Method: get
-```
-
 ## Add a resource to your application
 The application template uses AWS Serverless Application Model (AWS SAM) to define application resources. AWS SAM is an extension of AWS CloudFormation with a simpler syntax for configuring common serverless application resources such as functions, triggers, and APIs. For resources not included in [the SAM specification](https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md), you can use standard [AWS CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html) resource types.
 
-## Fetch, tail, and filter Lambda function logs
-
-To simplify troubleshooting, SAM CLI has a command called `sam logs`. `sam logs` lets you fetch logs generated by your deployed Lambda function from the command line. In addition to printing the logs on the terminal, this command has several nifty features to help you quickly find the bug.
-
-`NOTE`: This command works for all AWS Lambda functions; not just the ones you deploy using SAM.
-
-```bash
-clinical_studies$ sam logs -n HelloWorldFunction --stack-name "clinical_studies" --tail
-```
-
-You can find more information and examples about filtering Lambda function logs in the [SAM CLI Documentation](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-logging.html).
-
-## Tests
-
-Tests are defined in the `tests` folder in this project. Use PIP to install the test dependencies and run tests.
-
-```bash
-clinical_studies$ pip install -r tests/requirements.txt --user
-# unit test
-clinical_studies$ python -m pytest tests/unit -v
-# integration test, requiring deploying the stack first.
-# Create the env variable AWS_SAM_STACK_NAME with the name of the stack we are testing
-clinical_studies$ AWS_SAM_STACK_NAME="clinical_studies" python -m pytest tests/integration -v
-```
-
-## Cleanup
-
-To delete the sample application that you created, use the AWS CLI. Assuming you used your project name for the stack name, you can run the following:
-
-```bash
-sam delete --stack-name "clinical_studies"
-```
 
 ## Resources
 
 See the [AWS SAM developer guide](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html) for an introduction to SAM specification, the SAM CLI, and serverless application concepts.
 
-Next, you can use AWS Serverless Application Repository to deploy ready to use Apps that go beyond hello world samples and learn how authors developed their applications: [AWS Serverless Application Repository main page](https://aws.amazon.com/serverless/serverlessrepo/)

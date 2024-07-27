@@ -13,6 +13,11 @@ Globals:
   Function:
     Timeout: 120
     MemorySize: 516
+  #Api:
+    #Cors:
+      #AllowMethods: "'GET,POST,OPTIONS'"
+      #AllowHeaders: "'content-type', 'x-api-key'"
+      #AllowOrigin: "'*'"
 
 Resources:
   GetStudiesFunction:
@@ -23,9 +28,23 @@ Resources:
       Handler: app.lambda_handler
       Runtime: python3.9
       Layers:
-        - arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python311:12
+        - arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python39:21
       Architectures:
         - x86_64
+      Events:
+        StudyRefreshScheduleEvent:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: rate(1440 minute) #once a day
+            FlexibleTimeWindow:
+              Mode: FLEXIBLE
+              MaximumWindowInMinutes: 5
+            StartDate: '2024-08-09T23:30:00.000Z'
+            EndDate: '2024-08-10T08:30:00.000Z'
+            ScheduleExpressionTimezone: EST
+            RetryPolicy:
+              MaximumRetryAttempts: 1
+              MaximumEventAgeInSeconds: 300
     Connectors:
       StudyTableConn:
         Properties:
@@ -43,7 +62,7 @@ Resources:
       Handler: app.lambda_handler
       Runtime: python3.9
       Layers:
-        - arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python311:12
+        - arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python39:21
       Architectures:
         - x86_64
       Events:
@@ -61,9 +80,9 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref StudyTable
         - SESCrudPolicy:
-            IdentityName: email1@example.com # replace this with your source email address 
+            IdentityName: test1@example.com # change to your sender email
         - SESCrudPolicy:
-            IdentityName: email2@example.com # replace this with your test destination email address. only need for SES sandbox mode.
+            IdentityName: test2@example.com # change to your test receiver email
     
   StudyTable:
     Type: AWS::DynamoDB::Table
@@ -86,7 +105,76 @@ Resources:
         WriteCapacityUnits: 0
       StreamSpecification:
         StreamViewType:  NEW_AND_OLD_IMAGES
-      
+
+  StudyEnrollmentNotificationS3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      #AccessControl: PublicRead
+      BucketName: clinical-study-enrollment-notification-bucket
+      MetricsConfigurations:
+        - Id: EntireBucket
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: ObjectWriter
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false  
+
+  StaticWebsiteHostingBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref StudyEnrollmentNotificationS3Bucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: PublicReadForGetBucketObjects
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Join 
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref StudyEnrollmentNotificationS3Bucket
+                - /*  
+
+  NoticationSignUpApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      #Auth:
+        #ApiKeyRequired: true # sets for all methods
+        #UsagePlan:
+          #CreateUsagePlan: PER_API
+          #UsagePlanName: GatewayAuthorization
+
+  NoticationSignUpFunction:
+    Type: AWS::Serverless::Function
+    Description: 'Rest API that takes study enrollment notification sign up information and save to study table'
+    Properties:
+      FunctionName: NotificationSignUpLambdaFunction
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Layers:
+        - arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python39:21
+      CodeUri: func_notification_signup/
+      Policies:
+        DynamoDBCrudPolicy:
+          TableName: !Ref StudyTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref NoticationSignUpApi
+            Path: /
+            Method: any
+            #Auth:
+              #ApiKeyRequired: true
+        
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
   # Find out more about other implicit resources you can reference within SAM
@@ -106,3 +194,14 @@ Outputs:
   StudyTable:
     Description: "Study DynamoDB Table ARN"
     Value: !GetAtt StudyTable.Arn
+  WebsiteURL:
+    Value: !GetAtt
+      - StudyEnrollmentNotificationS3Bucket
+      - WebsiteURL
+    Description: URL for website hosted on S3
+  EndpointUrl:
+    Description: 'HTTP REST endpoint URL'
+    Value: !Sub 'https://${NoticationSignUpApi}.execute-api.${AWS::Region}.amazonaws.com/Prod'
+  #ApiKey:
+    #Description: "You can find your API Key in the AWS console: (Put in the request HEADER as 'x-api-key')"
+    #Value: !Sub "https://console.aws.amazon.com/apigateway/home?region=${AWS::Region}#/api-keys/${NoticationSignUpApiApiKey}"

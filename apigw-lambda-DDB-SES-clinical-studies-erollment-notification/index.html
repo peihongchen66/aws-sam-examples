@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+  <div class="container">
+    <h1>Please pick a disease/condition and enter your email address to subscribe.</h1>
+    <br><br>
+    <form id="myForm" action="https://uc57hupvb5.execute-api.us-east-1.amazonaws.com/Prod" method="post">
+      <label for="name">Condition:</label>
+      <select name="condition" id="condition">
+        <option value="ALLERGIES">ALLERGIES</option>
+        <option value="ANEMIA">ANEMIA</option>
+        <option value="ARTHRITIS">ARTHRITIS</option>
+        <option value="ASTHMA">ASTHMA</option>
+        <option value="CANCER">CANCER</option>
+        <option value="DEMENTIA">DEMENTIA</option>
+        <option value="DIABETES">DIABETES</option>
+        <option value="DIGESTIVE DISEASES">DIGESTIVE DISEASES</option>
+        <option value="HEART ATTACK">HEART ATTACK</option>
+        <option value="HIGH BLOOD PRESSURE">HIGH BLOOD PRESSURE</option>
+        <option value="KIDNEY DISEASE">KIDNEY DISEASE</option>
+        <option value="LIVER DISEASES">LIVER DISEASES</option>
+        <option value="NEUROLOGICAL DISEASES">NEUROLOGICAL DISEASES</option>
+        <option value="RESPIRATORY DISEASES">RESPIRATORY DISEASES</option>
+      </select>
+      <br><br>
+      <label for="mail">Email:</label>
+      <input type="email" id="mail" name="user_email" />
+      <br><br>
+      <button type="submit">Send</button>
+    </form>
+  </div>
+
+
+</body>
+
+</html>
